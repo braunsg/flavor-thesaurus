@@ -1,0 +1,943 @@
+<!--
+
+#flavor-thesaurus
+http://www.github.com/braunsg/flavor-thesaurus
+Created by Steven Braun
+Last Updated: 2016-08-07
+
+This document provides the source code for 'Niki Segnit's Flavor Thesaurus, Visual Edition,' available
+at http://www.stevengbraun.com/dev/flavor-thesaurus
+
+This code is freely distributed with no restrictions under an MIT permissive license.
+
+-->
+
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+	<meta property="og:title" content="Niki Segnit's Flavor Thesaurus, Visual Edition" />
+	<meta property="og:type" content="website" />
+	<meta property="og:description" content="A data visualization of Niki Segnit's book 'The Flavor Thesaurus'" />
+	<meta property="og:image" content="http://www.stevengbraun.com/dev/flavor-thesaurus/screenshot.jpg" />
+	
+	<title>Niki Segnit's Flavor Thesaurus, Visual Edition</title>
+	<style>
+	@import 'https://fonts.googleapis.com/css?family=Catamaran:100,600';
+
+	body {
+		width: 100%;
+		height: 100%;
+		margin: 0px;
+		padding: 0px;
+	}
+	
+	#header {
+		width: 100%;
+		margin: 20px 0px 0px 0px;
+		padding: 20px;
+		text-align: center;
+		font-family: "Catamaran",sans-serif;
+		font-size: 3.0em;
+		cursor: default;
+		box-sizing: border-box;
+			-webkit-box-sizing: border-box;
+			-moz-box-sizing: border-box;
+	}
+	
+	#vis_container {
+		position: relative;
+		width: 100%;
+		box-sizing: border-box;
+			-webkit-box-sizing: border-box;
+			-moz-box-sizing: border-box;
+	}
+	
+	#content_container {
+		width: 100%;
+		margin: 0px;
+		padding: 50px;
+		box-sizing: border-box;
+			-webkit-box-sizing: border-box;
+			-moz-box-sizing: border-box;
+	}
+	
+	.section_header {
+		font-family: "Catamaran",sans-serif;
+		text-transform: lowercase;
+		font-variant: small-caps;
+		font-size: 1.8em;	
+		font-weight: bold;
+		margin: 50px 0px 20px 0px;
+		padding: 0px;
+		border-bottom: 1px solid #333333;
+		box-sizing: border-box;
+			-webkit-box-sizing: border-box;
+			-moz-box-sizing: border-box;		
+	
+	}
+	
+	.text {
+		font-family: "Catamaran",sans-serif;
+		font-size: 1.2em;	
+	}
+	
+	.class_square_v,
+	.class_square_h,
+	.pairing_square {
+		shape-rendering: crispEdges;
+		cursor: pointer;
+		stroke: #EFEFEF;
+		stroke-width: 0.5;
+	}
+	
+	
+	.flavor_label {
+		font-family: "Catamaran",sans-serif;
+		font-size: 0.7em;
+		dominant-baseline: middle;
+		shape-rendering: crispEdges;
+		cursor: pointer;
+	}
+	
+	.cross_label {
+		font-family: "Catamaran",sans-serif;
+		font-size: 1.6em;
+		text-anchor: start;
+		dominant-baseline: hanging;
+		cursor: default;
+	}
+	
+	.key_label {
+		font-family: "Catamaran",sans-serif;
+		font-size: 0.9em;
+		dominant-baseline: middle;
+		shape-rendering: crispEdges;
+		text-transform: lowercase;
+		font-variant: small-caps;	
+		font-weight: bold;
+		cursor: pointer;
+	}
+	
+	#tooltip {
+		position: absolute;
+		max-height: 500px;
+		overflow-y: scroll;
+		margin: 0px;
+		padding: 5px 10px 5px 5px;
+		font-family: "Catamaran",sans-serif;
+		font-size: 0.9em;
+		background: rgba(255,255,255,0.8);
+		cursor: default;
+		
+	}
+		
+	#pairing_suggestions {
+		display: flex;
+		flex-direction: row;
+		margin: 0px;
+		padding: 0px;
+		pointer-events: visibleFill;
+	}
+	
+	.pairing_header {
+		text-transform: lowercase;
+		font-variant: small-caps;	
+		font-weight: bold;
+		font-size: 1.4em;
+	
+	}
+	
+	.pairing_column {
+		margin: 0px;
+		padding: 5px;
+	}
+	
+	.suggestion_header {
+		text-transform: lowercase;
+		font-variant: small-caps;	
+		font-weight: bold;
+	
+	}
+	
+	.category {
+		margin: 2px;
+		padding: 2px;
+		color: #FFFFFF;
+		font-size: 0.8em;
+		font-weight: bold;
+	}
+	
+	a:link, a:visited {
+		color: steelblue;
+		text-decoration: none;
+	}
+	
+	a:hover {
+		text-decoration: underline;
+	}
+	
+</style>
+<script src="lib/d3.v4.js"></script>
+<script src="lib/jquery-3.1.0.min.js"></script>
+<script>
+
+
+$(document).ready(function() {
+
+    // https://github.com/wbkd/d3-extended
+    d3.selection.prototype.moveToFront = function() {  
+      return this.each(function(){
+        this.parentNode.appendChild(this);
+      });
+    };
+    d3.selection.prototype.moveToBack = function() {  
+        return this.each(function() { 
+            var firstChild = this.parentNode.firstChild; 
+            if (firstChild) { 
+                this.parentNode.insertBefore(this, firstChild); 
+            } 
+        });
+    };
+	
+	
+	$.getJSON("flavor_pairings_degree3.json",function(response) {
+
+		// Define colors for categories, taken from The Flavor Thesaurus
+		var colors = {
+					  "meaty": "#a25e69",
+					  "cheesy": "#cccc66",
+					  "earthy": "#654138",
+					  "mustardy": "#af8438",
+					  "sulfurous": "#ffcc66",
+					  "marine": "#33cccc",
+					  "brine & salt": "#33cc99",
+					  "green & grassy": "#476432",
+					  "spicy": "#8f392f",
+					  "woodland": "#669966",
+					  "fresh fruity": "#b0424a",
+					  "creamy fruit": "#bd7571",
+					  "citrusy": "#aba245",
+					  "berry & bush": "#996699",
+					  "floral fruity": "#b46377",
+					  "roasted": "#595256"};
+					  
+		// Define data, classes
+		var data = response["data"];
+		var classes = response["classes"];	
+		var max_degree3 = response["max_degree3"];	
+
+		// Define global variables
+		var tooltip, boxSize;
+		
+		// Define SVG dimensions
+		var margin = {top: 150, left: 150, right: 250, bottom: 150};
+		var width = $(document).innerWidth();
+		var height = width;
+		
+		// Initialize SVG
+		var svg = d3.select("#vis_container").append("svg")
+			.attr("width",width)
+			.attr("height",height);
+
+		// Background fill for SVG main area
+		var backFill = svg.append("rect")
+			.attr("x",margin.left)
+			.attr("y",margin.top)
+			.attr("width",width-margin.left-margin.right)
+			.attr("height",height-margin.bottom-margin.top)
+			.attr("fill","#EEEEEE")
+			.moveToBack();
+			
+
+		// Flag to indicate is selection is currently made
+		var selection = false;
+		var grouped = [];
+		
+		
+		// Draw the canvas
+		function draw() {
+
+			// Flavor IDs
+			var ids = Object.keys(data);
+					
+			// Define box dimensions, scales
+			boxSize = (width - margin.left - margin.right) / ids.length;
+
+			// Horizontal positioning scale
+			var xScale = d3.scaleBand()
+				.domain(ids)
+				.range([margin.left, width-margin.right]);
+
+			// Vertical positioning scale
+			var yScale = d3.scaleBand()
+				.domain(ids)
+				.range([margin.top,height-margin.bottom]);
+
+			// Color scale for pairings		
+			var colorScale = d3.scaleLinear()
+				.domain([0,max_degree3])
+				.range(["#EFEFEF","#000000"]);
+			
+			// Group container for top flavor labels section
+			top_g = svg.append("g")
+				.attr("width",width)
+				.attr("transform","translate(0,0)");
+
+			// Group container for bottom flavor labels section
+			bottom_g = svg.append("g")
+				.attr("width",width)
+				.attr("transform","translate(0," + (height-margin.bottom) + ")");
+			
+			// Iterate through flavors and create squares
+			for(var id in data) {
+			
+				// Create horizontal flavor label
+				svg.append("text")
+					.data([{"id": id, "class": classes[id]}])
+					.attr("class","flavor_label")
+					.classed("selected",false)
+					.classed("horizontal_label",true)
+					.classed("horizontal_label_" + id.replace(" ","_"),true)
+					.attr("x", margin.left - 20)
+					.attr("y", yScale(id) + boxSize/2)
+					.attr("fill","#333333")
+					.attr("text-anchor","end")
+					.text(id)
+					.on("mouseover", function(d) {
+					
+						if(selection == false) {
+							// Dim all flavor labels
+							svg.selectAll(".flavor_label")
+								.attr("opacity",0.2);
+					
+							// Dim all pairing squares
+							svg.selectAll(".pairing_square")
+								.attr("opacity",0.2)
+								.moveToFront();
+							
+						}
+													
+						// Highlight this flavor label
+						d3.select(this)
+							.attr("opacity",1)
+							.attr("fill","#B20000");
+
+						// Extend flavor class rectangle
+						svg.selectAll(".class_square_h").filter(function(f) {
+							return f.id === d.id;
+						}).attr("width",width-margin.left-margin.right+boxSize);
+						
+
+						
+						// Highlight all pairings within highlighted row
+						svg.selectAll(".pairing_square").filter(function(f) {
+							return f.source === d.id;
+						}).attr("opacity",1)
+						.each(function(f) {
+							
+							// Highlight all vertical flavor labels that are highlighted within this flavor row
+							svg.selectAll(".vertical_label_" + f.target.replace(" ","_"),true)
+								.attr("fill","#B20000")
+								.attr("opacity",1);
+						
+						});
+							
+											
+					}).on("mouseout", function() {
+					
+						unhighlight();
+						
+					});
+
+			
+				// Vertical flavor label for top group
+				top_g.append("text")
+					.data([{"id": id, "class": classes[id]}])
+					.attr("class","flavor_label")
+					.classed("selected",false)
+					.classed("vertical_label",true)
+					.classed("vertical_label_" + id.replace(" ","_"),true)
+					.attr("x", 0)
+					.attr("y", 0)
+					.attr("transform","translate(" + (xScale(id) + boxSize/2) + "," + (margin.top - 20) + ")rotate(90)")
+					.attr("fill","#333333")
+					.attr("text-anchor","end")
+					.text(id);
+
+				// Vertical label for bottom group
+				bottom_g.append("text")
+					.data([{"id": id, "class": classes[id]}])
+					.attr("class","flavor_label")
+					.classed("selected",false)
+					.classed("vertical_label",true)
+					.classed("vertical_label_" + id.replace(" ","_"),true)
+					.attr("x", 0)
+					.attr("y", 0)
+					.attr("transform","translate(" + (xScale(id) + boxSize/2) + ",20)rotate(90)")
+					.attr("fill","#333333")
+					.attr("text-anchor","start")
+					.text(id);
+					
+				// Bind mouseover for vertical labels
+				svg.selectAll(".vertical_label").on("mouseover", function(d) {
+					
+						if(selection == false) {
+							// Dim all flavor labels
+							svg.selectAll(".flavor_label")
+								.attr("opacity",0.2);
+
+							// Dim all pairing squares
+							svg.selectAll(".pairing_square")
+								.attr("opacity",0.2)
+								.moveToFront();
+
+						}						
+							
+						// Highlight current flavor label
+						d3.select(this)
+							.attr("opacity",1)
+							.attr("fill","#B20000");
+
+						// Extend flavor class rectangles
+						top_g.selectAll(".class_square_v").filter(function(f) {
+							return f.id === d.id;
+						}).attr("height",height-margin.top-margin.bottom+boxSize);
+						
+						// Highlight all pairing squares in current column
+						svg.selectAll(".pairing_square").filter(function(f) {
+							return f.target === d.id;
+						}).attr("opacity",1)
+						.each(function(f) {
+						
+							// Highlight all flavor labels for flavors highlighted in row
+							svg.selectAll(".horizontal_label_" + f.source.replace(" ","_"),true)
+								.attr("fill","#B20000")
+								.attr("opacity",1);
+						
+						});
+												
+					}).on("mouseout", function() {
+						unhighlight();
+
+					});
+
+				// Retrieve flavor pairings for this current flavor
+				var pairs = data[id];
+
+				// Draw squares showing flavor classes, for top, left, and bottom axis groups
+				// Flavor class square for top axis
+				top_g.append("rect")
+					.data([{"class": classes[id],"id": id}])
+					.attr("class","class_square_v")
+					.classed("selected",false)
+					.attr("x",xScale(id))
+					.attr("y",margin.top - boxSize)
+					.attr("width",boxSize)
+					.attr("height",boxSize)
+					.attr("fill", colors[classes[id]])
+					.attr("stroke","none");
+
+				// Flavor class square for bottom axis
+				bottom_g.append("rect")
+					.data([{"class": classes[id],"id": id}])
+					.attr("class","class_square_v")
+					.classed("selected",false)
+					.attr("x",xScale(id))
+					.attr("y",0)
+					.attr("width",boxSize)
+					.attr("height",boxSize)
+					.attr("fill", colors[classes[id]])
+					.attr("stroke","none");
+					
+				// Bind mouseover for vertical flavor squares
+				svg.selectAll(".class_square_v").on("mouseover", function(d) {
+					
+						if(selection == false) {
+							// Dim all flavor labels
+							svg.selectAll(".flavor_label")
+								.attr("opacity",0.2);
+
+							svg.selectAll(".pairing_square")
+								.attr("opacity",0.2)
+								.moveToFront();
+
+						}
+						
+						// Highlight all flavor squares in this flavor class
+						top_g.selectAll(".class_square_v").filter(function(f) {
+							return f.class === d.class;
+						}).attr("height",height-margin.top-margin.bottom+boxSize);
+
+						// Highlight flavor labels in this class
+						svg.selectAll(".vertical_label").filter(function(f) {
+							return f.class === d.class;
+						}).attr("fill","#B20000")
+							.attr("opacity",1);
+						
+						
+						svg.selectAll(".pairing_square").filter(function(f) {
+							return f.target_class === d.class;
+						}).attr("opacity",1)
+						.each(function(f) {
+							d3.select(".horizontal_label_" + f.source.replace(" ","_"))
+								.attr("fill","#B20000")
+								.attr("opacity",1);
+						});
+						
+					}).on("mouseout", function() {
+						unhighlight();
+					});
+
+				// Flavor class square for left axis
+				svg.append("rect")
+					.data([{"class": classes[id],"id": id}])
+					.attr("class","class_square_h")
+					.classed("selected",false)
+					.attr("y",yScale(id))
+					.attr("x",margin.left - boxSize)
+					.attr("width",boxSize)
+					.attr("height",boxSize)
+					.attr("fill", colors[classes[id]])
+					.on("mouseover", function(d) {
+					
+						if(selection == false) {
+							// Dim all flavor labels
+							svg.selectAll(".flavor_label")
+								.attr("opacity",0.2);
+
+							svg.selectAll(".pairing_square")
+								.attr("opacity",0.2)
+								.moveToFront();
+						}
+
+						// Highlight this currently selected flavor pairing
+						svg.selectAll(".class_square_h").filter(function(f) {
+							return f.class === d.class;
+						}).attr("width",width-margin.left-margin.right+boxSize);
+						
+
+						// Highlight flavor labels in this class
+						svg.selectAll(".horizontal_label").filter(function(f) {
+							return f.class === d.class;
+						}).attr("fill","#B20000")
+							.attr("opacity",1);
+												
+						svg.selectAll(".pairing_square").filter(function(f) {
+							return f.source_class === d.class;
+						}).attr("opacity",1)
+						.each(function(f) {
+							d3.select(".vertical_label_" + f.target.replace(" ","_"))
+								.attr("fill","#B20000")
+								.attr("opacity",1);
+						});
+						
+					}).on("mouseout", function() {
+						
+						unhighlight();
+						
+					});
+
+				for(var pair in pairs) {
+
+					if(grouped.length > 0 && grouped.indexOf(pair) >= 0) {
+						if(pairs[pair]["count"] >= grouped.length) {
+							var fill = "#000000";
+						} else {
+							var fill = false;
+						}
+					} else {
+						if(pairs[pair]["count"] == 1) {
+							var fill = colorScale(pairs[pair]["degree3"]);
+						} else {
+							var fill = false;
+						}
+						
+					
+					}
+					
+					// Draw a square for this pair of flavors, in the central part of the canvas
+					// but only draw if the square has a fill (if the flavor pairing exists)
+					if(fill != false) {
+						svg.append("rect")
+							.data([{"source":id,"source_class": classes[id],"target":pair,"target_class": classes[pair], "degree3": pairs[pair]["degree3"], "fill": fill}])
+							.attr("class","pairing_square")
+							.classed("selected",false)
+							.attr("x",xScale(pair))
+							.attr("y",yScale(id))
+							.attr("width",boxSize)
+							.attr("height",boxSize)
+							.attr("fill", fill)
+							.attr("opacity",0)
+							.on("mouseover", function(d) {
+
+								if(selection == false) {
+									// If no flavor pairing is selected,
+									// highlight this current flavor pairing
+									svg.selectAll(".class_label")
+										.attr("opacity",0.2);
+
+									var position_top = Number(d3.select(this).attr("y"));
+
+									if(Number(d3.select(this).attr("x")) < width/2) {
+										var position_left = Number(d3.select(this).attr("x")) + boxSize;
+										tooltip.style("left", position_left + "px")	
+											.style("right","auto")	
+											.style("text-align","left");
+
+									} else {
+										var position_right = width - Number(d3.select(this).attr("x"));
+										tooltip.style("right", position_right + "px")		
+											.style("left","auto")	
+											.style("text-align","right");
+
+									}
+
+									if(Number(d3.select(this).attr("y")) < height/2) {
+										tooltip.style("top", (position_top + boxSize) + "px")
+											.style("bottom","auto");
+
+									} else {
+										tooltip.style("bottom", (height - position_top + boxSize) + "px")
+											.style("top","auto");
+
+									}
+									tooltip
+										.style("height","auto")
+										.html("<div class='pairing_header'>" + d.source + " and " + d.target + "</div>" + 
+											"<span class='category' style='background:" + colors[d.source_class] + "'>" + d.source_class + "</span>" + "<span class='category' style='background:" + colors[d.target_class] + "'>" + d.target_class + "</span>"
+										).transition()
+											.duration(500)
+											.style("opacity",1);
+									
+									svg.selectAll(".pairing_square")
+										.attr("opacity",0.2);
+										
+									
+								}
+								svg.select(".horizontal_label_" + d.source.replace(" ","_"))
+									.attr("opacity",1)
+									.attr("fill","#B20000");
+
+								svg.selectAll(".vertical_label_" + d.target.replace(" ","_"))
+									.attr("opacity",1)
+									.attr("fill","#B20000");
+
+								
+								svg.append("rect")
+									.classed("bg_rect",true)
+									.attr("x", margin.left)
+									.attr("y", yScale(d.source))
+									.attr("width",width-margin.left-margin.right)
+									.attr("height",boxSize)
+									.attr("fill", colors[classes[d.source]])
+									.attr("opacity",1)
+									.moveToBack();
+
+								svg.append("rect")
+									.classed("bg_rect",true)
+									.attr("x", xScale(d.target))
+									.attr("y", margin.top)
+									.attr("width",boxSize)
+									.attr("height",height-margin.top-margin.bottom)
+									.attr("fill", colors[classes[d.target]])
+									.attr("opacity",1)
+									.moveToBack();
+
+								backFill.moveToBack();
+							
+						
+								selected = d3.select(this)
+									.attr("opacity",1)
+									.attr("width",boxSize + 8)
+									.attr("height",boxSize + 8)
+									.attr("transform","translate(-4,-4)")
+									.moveToFront();
+										
+								svg.selectAll(".pairing_square")
+									.moveToFront();
+									
+							}).on("mouseout", function() {
+								unhighlight();								
+
+							}).on("click", function(d) {
+								// On click, select this flavor pairing
+								if(!selection) {
+									selection = true;
+										
+									d3.select(this)
+										.classed("selected",true)
+										.moveToFront();
+								
+									d3.selectAll(".bg_rect")
+										.classed("selected",true);
+									
+									d3.selectAll(".vertical_label").filter(function(l) {
+										return l.id === d.source || l.id === d.target;
+									}).classed("selected",true);
+
+									d3.selectAll(".horizontal_label").filter(function(l) {
+										return l.id === d.source || l.id === d.target;
+									}).classed("selected",true);
+								
+									// Now also highlight all other flavor pairing squares
+									// in this row and column
+									
+									var targets = [];
+									var sources = [];
+									var matches = [];
+									svg.selectAll(".pairing_square").filter(function(p) {
+										return p.source === d.source || p.target === d.target;
+									}).each(function(p) {
+										if(sources.indexOf(p.source) < 0 && p.source !== d.source) {
+											sources.push(p.source);
+										}
+										if(targets.indexOf(p.target) < 0 && p.target !== d.target) {
+											targets.push(p.target);
+										}										
+										
+									}).attr("opacity",1)
+										.classed("subselected",true)
+										.moveToFront();
+									
+										sources.forEach(function(s) {
+											if(targets.indexOf(s) >= 0) {
+												matches.push(s);
+											}
+										});
+										
+										matches.forEach(function(m) {
+											
+											svg.selectAll(".flavor_label").filter(function(f) {
+												return f.id === m;
+											}).attr("fill","#B20000");
+										});
+									
+									tooltip.transition()
+										.duration(250)
+										.style("opacity",0)
+										.on("end", function() {
+										
+											tooltip.html("<div class='pairing_header'>" + d.source + " and " + d.target + "</div>"
+													 + "<span class='category' style='background:" + colors[d.source_class] + "'>" + d.source_class + "</span>" + "<span class='category' style='background:" + colors[d.target_class] + "'>" + d.target_class + "</span>" + "<br>" + 
+													"<div id='pairing_suggestions'>" +
+														"<div class='pairing_column'><div class='suggestion_header'>" + d.source + "</div>" +
+															sources.join("<br>") + 
+														"</div>" + "<br>" + 
+														"<div class='pairing_column'><div class='suggestion_header'>" + d.target + "</div>" +
+															targets.join("<br>") + 
+														"</div>" + "<br>" + 
+														"<div class='pairing_column'><div class='suggestion_header'>both</div>" +
+															matches.join("<br>") + 
+														"</div>" + 
+													"</div>"
+												).transition()
+													.duration(250)
+													.style("opacity",1);
+										});
+																			
+								} else {
+									selection = false;
+									svg.selectAll(".selected").classed("selected",false);
+									svg.selectAll(".subselected").classed("subselected",false);
+									unhighlight();
+								}
+							});
+					}
+					
+				}
+			}
+			
+			// Transition all flavor pairing squares into view
+			svg.selectAll(".pairing_square")
+				.transition()
+				.duration(200)
+				.delay(function(d,i) { return i; })
+				.attr("opacity",1);
+				
+			// Create tooltip placeholder
+			tooltip = d3.select("#vis_container").append("div")	
+				.attr("id","tooltip")
+				.style("opacity", 0);
+
+			
+		} // end draw()
+
+		function unhighlight() {
+
+			if(!selection) {
+			
+				tooltip.interrupt()
+					.transition()
+					.duration(100)
+					.style("opacity",0)
+					.style("height","0px");
+				
+				// If no flavor pair is selected, return all squares
+				// to unhighlighted mode
+
+		
+				svg.selectAll(".flavor_label")
+					.attr("opacity",1)
+					.attr("fill","#333333");
+			
+				svg.selectAll(".pairing_square")
+					.attr("width",boxSize)
+					.attr("height",boxSize)
+					.attr("transform","translate(0,0)")
+					.attr("opacity",1);
+
+		
+				svg.selectAll(".bg_rect")
+					.attr("opacity",0)
+					.remove();
+
+				svg.selectAll(".class_square_h").attr("width",boxSize);	
+			
+				// Return flavor class rectangles to original size
+				top_g.selectAll(".class_square_v").attr("height",boxSize);
+							
+			} else {
+		
+			
+				svg.selectAll(".pairing_square").filter(function(f) {
+					return d3.select(this).classed("selected") == false || d3.select(this).classed("subselected") == true;
+				}).attr("width",boxSize)
+					.attr("height",boxSize)
+					.attr("opacity",function() {
+						if(d3.select(this).classed("subselected") == true) {
+							return 1;
+						} else {
+							return 0.2;
+						}
+					})
+					.attr("transform","translate(0,0)");
+
+				svg.selectAll(".bg_rect").filter(function(f) {
+					return d3.select(this).classed("selected") == false;
+				}).attr("opacity",0)
+					.remove();
+
+				svg.selectAll(".flavor_label").filter(function(f) {
+					return d3.select(this).classed("selected") == false;
+				}).attr("fill","#333333");
+
+				svg.selectAll(".class_square_h").filter(function(f) {
+					return d3.select(this).classed("selected") == false;
+				}).attr("width",boxSize);	
+			
+				// Return flavor class rectangles to original size
+				top_g.selectAll(".class_square_v").filter(function(f) {
+					return d3.select(this).classed("selected") == false;
+				}).attr("height",boxSize);		
+			}
+		}
+		
+		// Generate key on right
+		
+		var position_index = 0;
+		var key = svg.append("g")
+			.attr("transform","translate(" + (width-margin.right) + "," + margin.top + ")");
+			
+		for(var c in colors) {
+			
+			key.append("rect")
+				.attr("x", 0)
+				.attr("y", 0)
+				.attr("transform","translate(25," + position_index*25 + ")")
+				.attr("width",10)
+				.attr("height",10)
+				.attr("stroke","none")
+				.attr("fill",colors[c]);
+
+			key.append("text")
+				.data([{"class": c}])
+				.attr("x", 0)
+				.attr("y", 0)
+				.attr("class","key_label")
+				.attr("transform","translate(50," + (position_index*25 + 5) + ")")
+				.text(c.replace("&","and"))
+				.on("mouseover", function(d) {
+
+						svg.selectAll(".key_label")
+							.attr("opacity",0.2);
+							
+						d3.select(this).attr("opacity",1);
+						
+						if(selection == false) {
+							// Dim all flavor labels
+							svg.selectAll(".flavor_label")
+								.attr("opacity",0.2);
+
+							svg.selectAll(".pairing_square")
+								.attr("opacity",0.2)
+								.moveToFront();
+
+						}
+						
+						// Highlight all flavor squares in this flavor class
+						top_g.selectAll(".class_square_v").filter(function(f) {
+							return f.class === d.class;
+						}).attr("height",height-margin.top-margin.bottom+boxSize);
+
+						// Highlight flavor labels in this class
+						svg.selectAll(".vertical_label").filter(function(f) {
+							return f.class === d.class;
+						}).attr("fill","#B20000")
+							.attr("opacity",1);
+						
+						
+						svg.selectAll(".pairing_square").filter(function(f) {
+							return f.target_class === d.class;
+						}).attr("opacity",1)
+						.each(function(f) {
+							d3.select(".horizontal_label_" + f.source.replace(" ","_"))
+								.attr("fill","#B20000")
+								.attr("opacity",1);
+						});					
+				}).on("mouseout", function() {
+					svg.selectAll(".key_label")
+						.attr("opacity",1);
+						
+					unhighlight();
+				});
+				
+			position_index++;
+		}
+		
+		// Bind click on SVG to clear canvas
+		
+		svg.on("mousedown", function() {
+			d3.event.stopPropagation();
+			if(selection) {
+				selection = false;
+				unhighlight();
+			}
+		});
+		
+		// Initialize canvas
+		draw(false);
+		
+	});	// end $.getJSON
+
+});	// end $(document).ready()
+</script>
+</head>
+<body>
+<div id="header">Niki Segnit's <i>Flavor Thesaurus</i>, Visual Edition</div>
+<div id="vis_container">
+</div>
+<div id="content_container">
+	<div class="text">
+	Niki Segnit's <i>The Flavor Thesaurus</i> is a handbook for connoisseurs of flavor, ingredients, and interesting combinations between them. Structured in the form of a glossary indexed by flavor or ingredient, the handbook offers suggestions for delicious, unusual, and unexpected pairings to spice up your next meal. This project is a visualization of the pairing data provided in that book, offering a way of visually exploring interesting flavor combinations and the relationships between them.
+	</div>
+	<div class="section_header">The Visualization</div>
+	<div class="text">
+	In this visualization, flavor pairings are represented by a cross-tabulated matrix with rows and columns corresponding to individual flavors or ingredients. This particular matrix is an <i>adjacency</i> matrix, meaning that column and row headers are redundant, giving the visualization diagonal symmetry. Each individual flavor is assigned to a specific flavor class in <i>The Flavor Thesaurus</i> (<i>i.e.,</i> meaty, fruity, or roasted), and each column or row header is colored according to these classes, using the same color scheme provided in the book. Look up individual flavors or ingredients by column or row, and hover over labels, flavor classes, and pairings to explore more. Each 2-flavor pairing &mdash; that is, each square inside the matrix &mdash; is colored in proportion to the number of 3-flavor pairings that are possible with the given two flavors; darker squares indicate more possible pairings and triplets. When you click on any square/flavor pairing, a list of additional suggested pairings for each component flavor as well as for both flavors together is provided so you can explore and build your own.
+	</div>
+	<div class="section_header">Acknowledgments</div>
+	<div class="text">This visualization was built in <a target="_blank" href="http://www.d3js.org">D3.js</a> by <a target="_blank" href="http://www.stevengbraun.com">Steven Braun</a>. The data used to create this visualization are based on text presented in <a target="_blank" href="https://www.amazon.com/Flavor-Thesaurus-Compendium-Pairings-Creative/dp/160819874X/ref=sr_1_1?ie=UTF8&qid=1470594217&sr=8-1&keywords=the+flavor+thesaurus"><i>The Flavor Thesaurus</i></a>, written by Niki Segnit. The code for this project is freely available on <a target="_blank" href="http://www.github.com/braunsg/flavor-thesaurus">GitHub</a>.
+	</div>
+
+</div>
+</body>
+</html>
