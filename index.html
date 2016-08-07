@@ -569,7 +569,7 @@ $(document).ready(function() {
 							.attr("fill", fill)
 							.attr("opacity",0)
 							.on("mouseover", function(d) {
-
+console.log(selection)
 								if(selection == false) {
 									// If no flavor pairing is selected,
 									// highlight this current flavor pairing
@@ -602,7 +602,7 @@ $(document).ready(function() {
 
 									}
 									tooltip
-										.style("height","auto")
+										.style("visibility","visible")
 										.html("<div class='pairing_header'>" + d.source + " and " + d.target + "</div>" + 
 											"<span class='category' style='background:" + colors[d.source_class] + "'>" + d.source_class + "</span>" + "<span class='category' style='background:" + colors[d.target_class] + "'>" + d.target_class + "</span>"
 										).transition()
@@ -659,11 +659,12 @@ $(document).ready(function() {
 							}).on("mouseout", function() {
 								unhighlight();								
 
-							}).on("click", function(d) {
+							}).on("mousedown", function(d) {
+									d3.event.stopPropagation();
+
 								// On click, select this flavor pairing
-								if(!selection) {
-									selection = true;
-										
+								if(selection == false) {
+									
 									d3.select(this)
 										.classed("selected",true)
 										.moveToFront();
@@ -734,7 +735,9 @@ $(document).ready(function() {
 													.duration(250)
 													.style("opacity",1);
 										});
-																			
+														
+										selection = true;
+											
 								} else {
 									selection = false;
 									svg.selectAll(".selected").classed("selected",false);
@@ -764,13 +767,13 @@ $(document).ready(function() {
 
 		function unhighlight() {
 
-			if(!selection) {
+			if(selection == false) {
 			
 				tooltip.interrupt()
 					.transition()
 					.duration(100)
 					.style("opacity",0)
-					.style("height","0px");
+					.style("visibility","hidden");
 				
 				// If no flavor pair is selected, return all squares
 				// to unhighlighted mode
@@ -907,7 +910,6 @@ $(document).ready(function() {
 		// Bind click on SVG to clear canvas
 		
 		svg.on("mousedown", function() {
-			d3.event.stopPropagation();
 			if(selection) {
 				selection = false;
 				unhighlight();
